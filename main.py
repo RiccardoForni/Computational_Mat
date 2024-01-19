@@ -28,13 +28,18 @@ def give_stock(stock,q):
         if 0 <= indice_random < len(chiavi):
             chiave_casuale = chiavi[indice_random]
             temp_dict[chiave_casuale] = 1
-
+            
     return temp_dict
 
+def scale(df):
+    m_factor = np.array([])
+    m_factor = np.append(m_factor,np.ones(df.shape[1],dtype=int))
+    m_factor = np.append(m_factor,np.zeros(df.shape[0]*df.shape[1]-df.shape[1],dtype=int))
+    return m_factor
 
 def create_ILP(df,df_corr,y,q,stock_esg,esg):
-    C = np.array([]) 
-    A = np.array([])
+    C = np.array([]) #function to optimize
+    A = []
     b = np.array([])
     #define C
     for i in df_corr.index:
@@ -43,53 +48,86 @@ def create_ILP(df,df_corr,y,q,stock_esg,esg):
             temp = np.append(temp,df_corr.loc[i,j])
             
         C = np.append(C,temp,axis=0)
+
+    #C = np.array(df_corr)
     #define A,b
-    # m_factor = np.array([1,1,1])
-    
-    m_factor = np.array([])
-    m_factor = np.append(m_factor,np.ones(df_corr.shape[1],dtype=int))
-    m_factor = np.append(m_factor,np.zeros(df_corr.shape[0]*df_corr.shape[1]-df_corr.shape[1],dtype=int))
-    
+    m_factor = scale(df_corr)
+
     for i in range(df_corr.shape[0]):
+        t = np.array([])
         b = np.append(b,1)
         for z in m_factor:
-            A = np.append(A,z*1)
+            t = np.append(t,z*1)
+        A.append(t)
 
         m_factor= np.roll(m_factor, df_corr.shape[1])
-    for key,valore in y.items():
-        A = np.append(A,valore)  
-      
-    b = np.append(b,q)
+
+    t = np.array([])
     for i in df_corr.index:
         for j in df_corr.columns:
-            b = np.append(b,y[j])
-            if y[j] == 0:
-                A = np.append(A,0)
+            if df_corr.loc[i,j] == 1:
+                    if y[i] == y[j]:
+                        t = np.append(t,y[i]*y[j])
             else:
-                for i in list(y.values()):
-                    A = np.append(A,y[j]*i)
-    
+                t=np.append(t,0)
+                    
 
-    for j in stock_esg.columns:
-        print(stock_esg[j]*y[j])
-        A = np.append(A,stock_esg[j]*y[j])
+    A.append(t)
+    b = np.append(b,q)
+
+    m_factor = scale(df_corr)
+    #3rd constrait
+    for j in df_corr.columns:
+        t = np.array([])
+        b = np.append(b,y[j]*df_corr.shape[1])
+        for z in m_factor:
+            t = np.append(t,z*1)
+        A.append(t)
+
+        m_factor= np.roll(m_factor, df_corr.shape[1])
+
+    
+    #last
+    t = np.array([])
+    for i in df_corr.index:
+        for j in df_corr.columns:
+            if df_corr.loc[i,j] == 1:
+                    if y[i] == y[j]:
+                        t = np.append(t,stock_esg[j]*y[j])
+            else:
+                t=np.append(t,0)
+    A.append(t)
 
     b = np.append(b,esg*q)
+    A = np.array(A)
+    A = A*-1
+    b = b*-1
+    C = C*-1
 
+    pd.DataFrame(A).to_excel("A.xlsx")
+    pd.DataFrame(b.T).to_excel("b.xlsx")
+    pd.DataFrame(C.T).to_excel("C.xlsx")
 
-
-    return 0 
+    return A,b,C
 
 try:
-    Symbol = ["Date","IBM","NKE","GE","GS","SBUX","JNJ","AVGO","LRCX","MMC","ROST"]
-    time = "2013/9/30"
-    df_stocks,n_stock, Symbol = rf.take_data(Symbol,time)
-    df_stocks.to_excel("Stocks.xlsx")
-except:
-    print("cannot download, take directly the file is possible")
+    print("take data from file")
     df_stocks = pd.read_excel("Stocks.xlsx")
     Symbol = df_stocks.columns
     n_stock = len(Symbol)
+
+ 
+except:
+    try:
+        print("cannot find file, download data")
+        Symbol = ["Date","IBM","NKE","GE","GS","SBUX","JNJ","AVGO","LRCX","MMC","ROST"]
+        time = "2013/9/30"
+        df_stocks,n_stock, Symbol = rf.take_data(Symbol,time)
+        df_stocks.to_excel("Stocks.xlsx")
+        df_stocks = df_stocks.drop("Date")
+    except:
+        print("not possible to continue")
+
 
 check = True
 while check:
