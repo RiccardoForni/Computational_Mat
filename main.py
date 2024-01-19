@@ -128,7 +128,11 @@ except:
     except:
         print("not possible to continue")
 
-
+default = [4,20]
+q = default[0]
+esg_target = 20
+print("lavoro con valori di default: Q="+str(q)+" - esg target"+str(esg_target))
+"""
 check = True
 while check:
     q = input("Select number of stocks")
@@ -139,8 +143,10 @@ q = int(q)
 
 esg_target = input("Esg target values -> 0 to 40+")
 esg_target =  int(esg_target)
-    
-del check        
+del check 
+""" 
+       
+
 
 df_esg = pd.read_excel("ESG.xlsx")
 
